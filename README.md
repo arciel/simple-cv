@@ -14,5 +14,5 @@ and SDL2 with OpenGL3 for GUI and output.
 Build with Visual Studio
 
 ## Running
-* Download a prebuilt binary from the releases page.
+* Download a prebuilt binary from the [releases page](https://github.com/arciel/simple-cv/releases).
 * The prebuilt binary requires the Visual C++ 2017 redistributable installed.
