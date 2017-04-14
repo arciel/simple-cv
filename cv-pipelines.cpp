@@ -14,74 +14,6 @@
 
 #include "settings.h"
 
-#define SAMPLE(x) "C:\\dhoomketu\\samples\\" ## x
-
-#define arg SAMPLE("terrace1-c3.avi")
-
-int bmain(int argc, char *argv[])
-{
-	cv::VideoCapture video(arg);
-	cv::Mat prev_frame, cur_frame, next_frame;
-	bool success;
-	video >> prev_frame >> cur_frame;
-
-	while (true)
-	{
-		video >> next_frame;
-
-		cv::Mat pc;
-		cv::absdiff(prev_frame, cur_frame, pc);
-		cv::Mat cn;
-		cv::absdiff(cur_frame, next_frame, cn);
-
-		cv::imshow("pc", pc);
-		cv::imshow("cn", cn);
-
-		
-
-		//cv::Mat frame_diff = motion_frame_diff(prev_frame, cur_frame, next_frame);
-
-		//cv::imshow("prev_frame", prev_frame);
-		//cv::imshow("cur_frame", cur_frame);
-		//cv::imshow("next_frame", next_frame);
-
-		//cv::imshow("frame_diff", frame_diff);
-
-		prev_frame = cur_frame;
-		cur_frame = next_frame;
-
-		int key = cv::waitKey(1);
-		if (key == 'q')
-			break;
-	}
-	cv::destroyAllWindows();
-	return 0;
-}
-
-
-/*
-auto main(int argc, char *argv[]) -> int
-{
-	cv::VideoCapture cap {arg};
-	cap.re
-	cv::Mat frame, fin;
-	int tc = 0;
-	while ((tc = cv::waitKey(60)) != 'q')
-	{
-		cap >> frame;
-		if (frame.empty()) break;
-		fin = pipeline_boxMOG(frame);
-		cv::imshow("Frame", frame);
-		cv::imshow("Result", fin);
-		fin = cv::Scalar(0);
-	}
-	cv::destroyAllWindows();
-	return 0;
-}
-
-
-*/
-
 auto pipeline_canny(const cv::Mat& i) -> cv::Mat
 {
 	cv::Mat bi = i, r;
@@ -94,7 +26,8 @@ auto pipeline_canny(const cv::Mat& i) -> cv::Mat
 auto pipeline_blur(const cv::Mat& i) -> cv::Mat
 {
 	cv::Mat r;
-	cv::blur(i, r, settings::get().blurSize);
+	//cv::blur(i, r, settings::get().blurSize);
+	cv::GaussianBlur(i, r, cv::Size(0, 0), settings::get().sigmaX, settings::get().sigmaY);
 	return r;
 }
 
@@ -125,47 +58,46 @@ auto pipeline_1color(const cv::Mat& i) -> cv::Mat
 
 auto pipeline_colorMOG(const cv::Mat& i) -> cv::Mat
 {
-	cv::Mat m, r;
-	settings::get().mog2->apply(i, m);
-	cv::bitwise_and(i, i, r, m);
-	return r;
+	cv::Mat igs, mask, ret;
+	cv::cvtColor(i, igs, cv::COLOR_BGR2GRAY);
+	if (settings::get().mog2_soften) cv::blur(igs, igs, settings::get().blurSize);
+	settings::get().mog2->apply(igs, mask);
+	cv::cvtColor(igs, igs, cv::COLOR_GRAY2BGR);
+	cv::bitwise_and(i, i, ret, mask);
+	cv::bitwise_not(mask, mask);
+	cv::bitwise_and(igs, igs, ret, mask);
+	return ret;
 }
 
 auto pipeline_contourMOG(const cv::Mat& i) -> cv::Mat
 {
-	cv::Mat delta, delta2, bi, mask, r;
-	settings::get().contours.clear();
-	settings::get().big_contours.clear();
-	cv::GaussianBlur(i, bi, cv::Size(0, 0), 1, 1);
-	settings::get().mog2->apply(bi, delta);
-	delta2 = delta.clone();
-	cv::findContours(delta2, settings::get().contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
-	settings::get().big_contours.reserve(settings::get().contours.size());
-	auto it = std::back_inserter(settings::get().big_contours);
-	std::copy_if(settings::get().contours.begin(), settings::get().contours.end(), it, [](const auto& c) { return cv::contourArea(c) > settings::get().contour_granularity; });
-	r = i.clone();
-	cv::drawContours(r, settings::get().big_contours, -1, cv::Scalar(0, 0, 255), 5);
-	return r;
+	cv::Mat igs, mask, mask2, ret;
+	//settings::get().contours.clear();
+	settings::get().ctr_list.clear();
+	//settings::get().big_contours.clear();
+	settings::get().ctr_filt.clear();
+	//cv::GaussianBlur(i, bi, cv::Size(0, 0), 1, 1);
+	cv::cvtColor(i, igs, cv::COLOR_BGR2GRAY);
+	if (settings::get().mog2_soften) cv::blur(igs, igs, settings::get().blurSize);
+	//settings::get().mog2->apply(bi, delta);
+	settings::get().mog2->apply(igs, mask);
+	//delta2 = delta.clone();
+	mask2 = mask.clone();
+	//cv::findContours(delta2, settings::get().contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+	if (settings::get().ctr_dilate) cv::dilate(mask2, mask2, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
+	cv::findContours(mask2, settings::get().ctr_list, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+	settings::get().ctr_filt.reserve(settings::get().ctr_list.size());
+	auto it = std::back_inserter(settings::get().ctr_filt);
+	std::copy_if(settings::get().ctr_list.begin(), settings::get().ctr_list.end(), it, [](const auto& c)
+	{ 
+		return cv::contourArea(c) > settings::get().ctr_minarea && cv::contourArea(c) < settings::get().ctr_maxarea;
+	});
+	ret = i.clone();
+	cv::drawContours(ret, settings::get().ctr_filt, -1, cv::Scalar(0, 0, 255), 5);
+	return ret;
 }
 
 auto pipeline_boxMOG(const cv::Mat& i) -> cv::Mat
 {
-	cv::Mat delta, delta2, bi, mask, r;
-	settings::get().contours.clear();
-	settings::get().big_contours.clear();
-	cv::GaussianBlur(i, bi, cv::Size(0, 0), 1, 1);
-	settings::get().mog2->apply(bi, delta);
-	cv::dilate(mask, mask, cv::getStructuringElement(cv::MORPH_RECT, cv::Size(3, 3)));
-	delta2 = delta.clone();
-	cv::findContours(delta2, settings::get().contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
-	r = i.clone();
-	for (const auto& i : settings::get().contours)
-	{
-		if (cv::contourArea(i) > settings::get().contour_granularity)
-		{
-			cv::Rect rct = cv::boundingRect(i);
-			cv::rectangle(r, rct, cv::Scalar(0, 0, 255), 3);
-		}
-	}
-	return r;
+	return pipeline_blur(i);
 }

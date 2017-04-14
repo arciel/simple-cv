@@ -2,7 +2,7 @@
 #include "stdafx.h"
 #include <stdio.h>
 #include <iostream>
-#include <GL/gl3w.h>
+#include "GL/gl3w.h"
 #include <SDL.h>
 
 
@@ -12,9 +12,9 @@
 #include "cv-pipelines.h"
 #include "settings.h"
 
-#define APP_WINTITLE "SimpleCV" //TODO : Hash this.
+#define APP_WINTITLE "OpenCV demo/sample for enCypher" //TODO : Hash this.
 
-#define SAMPLE(X) "C:\\samples\\" ##X
+#define SAMPLE(X) "C:\\dhoomketu\\samples\\" ##X
 
 #define arg 0
 
@@ -30,10 +30,10 @@ void ui_cannyfeed(const cv::Mat& frame, GLuint);
 void ui_isofeed(const cv::Mat& frame, GLuint);
 void ui_mog2feed(const cv::Mat& frame, GLuint);
 
-enum { FSRC = 0, FGS, FINV, FBLUR, FCNY, FISO, FCMOG, FNUM };
+enum { FSRC = 0, FGS, FINV, FBLUR, FCNY, FISO, FCMOG, FMOGCT, FNUM };
 static bool feed_enabled[FNUM] = { true };
 using feedptr = void(*) (const cv::Mat&, GLuint);
-feedptr boxen[FNUM] = { ui_srcfeed, ui_gsfeed, ui_invfeed, ui_blurfeed, ui_cannyfeed, ui_isofeed, ui_mog2feed };
+feedptr boxen[FNUM] = { ui_srcfeed, ui_gsfeed, ui_invfeed, ui_blurfeed, ui_cannyfeed, ui_isofeed, ui_mog2feed, ui_mog2feed };
 static GLuint texen[FNUM] = {};
 
 static cv::VideoCapture cam{ arg };
@@ -75,7 +75,7 @@ int main(int, char**)
 	settings::get().cap_width  = cam.get(cv::CAP_PROP_FRAME_WIDTH);
 	settings::get().cap_height = cam.get(cv::CAP_PROP_FRAME_HEIGHT);
 	settings::get().cap_ar = settings::get().cap_width / settings::get().cap_height; // calculate aspect ratio
-	settings::get().cap_scale = 0.15;
+	settings::get().cap_scale = 0.50;
 
 	// scale down the camera feed to occupy half the area.
 	cam.set(cv::CAP_PROP_FRAME_HEIGHT, settings::get().cap_height * settings::get().cap_scale);
